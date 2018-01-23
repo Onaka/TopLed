@@ -10,7 +10,7 @@ class Vector3 {
     Vector3(float X, float Y, float Z);
 
     //Assignment operator or something, was needed
-    Vector3& operator=(Vector3 vec);
+    //Vector3& operator=(Vector3 vec);
 
     Vector3(const Vector3& vec);
     
@@ -28,8 +28,11 @@ class Vector3 {
     
     //Returns a vector with a length of 1
     Vector3 normalize(Vector3 vec);
+
+    void serialPrint ();
 };
 
 
 
 #endif
+

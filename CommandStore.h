@@ -13,14 +13,16 @@ class ChangeInstruction
 
     ChangeInstruction();
 
-    ChangeInstruction (byte instruct[50]);
+    ChangeInstruction (char instruct[50]);
 
     void doThing(unsigned long serverTime, int ledArray[][3]);
 
-    unsigned long convertCharsToUL(byte chars[4]);
+    unsigned long convertCharsToUL(char chars[4]);
+    
     //Writes a vector to the specified LED
     static void writeVector(int led, int ledArray[][3], Vector3 vec);
 
 };
 
 #endif
+

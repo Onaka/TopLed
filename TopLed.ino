@@ -76,6 +76,8 @@ int iterator = 0;
 
 
 void setup() {
+  //Initialize the serial port
+  Serial.begin(115200, SERIAL_8N1);
   //Important for the TCP and UDP libraries
   WiFi.begin();
   //Start listening for UDP packets
@@ -100,11 +102,12 @@ void setup() {
   }
 
   //Synchronize the time with the server
-  while (timeSync(server, udp, 1500) == 0)
+  while (serverMillis() == 0)
   {
+    serverMillis(timeSync(server, udp, 1500));
     delay(1000);
   }
-  //parseCommands(server, String("/index.php?id=") + id);
+  parseCommands(server, String("/index.php?id="), client, udp, commandArray);
 
   /* Publish an event to Particle telling what the offset ended up being
     char bufferizer[20];
@@ -121,8 +124,9 @@ void setup() {
 // Note: Code that blocks for too long (like more than 5 seconds), can make weird things happen (like dropping the network connection).  The built-in delay function shown below safely interleaves required background activity, so arbitrarily long delays can safely be done if you need them.
 
 void loop() {
+  char packet[255];
   //Check for UDP messages, and clear the buffer
-  receiveUDP(udp);
+  receiveUDP(udp, packet, 255);
 
   //delay(50); //magic number
   //timeCounter += 50; //magic number
@@ -166,21 +170,19 @@ void loop() {
   //Resynch server time, for purposes of testing
   if (!digitalRead(plusButton))
   {
-    timeSync(server, udp, 1500);
-    //parseCommands(server, String("/index.php?id=") + id);
-    dumpCommands(server, client, udp);
+    serverMillis(timeSync(server, udp, 1500));
+    parseCommands(server, String("/index.php?id="), client, udp, commandArray);
+    //dumpCommands(server, client, udp);
     delay(500); //magic number
   }
 
   if (!digitalRead(minusButton))
   {
-    timeSync(server, udp, 1500);
-    //parseCommands(server, String("/index.php?id=") + id);
-    dumpCommands(server, client, udp);
+    serverMillis(timeSync(server, udp, 1500));
+    parseCommands(server, String("/index.php?id=1"), client, udp, commandArray);
+    //dumpCommands(server, client, udp);
     delay(500); //magic number
   }
-
-
   //Clamp the brigthness to a reasonable range
   if (brightness > 255)
   {
@@ -212,26 +214,38 @@ void loop() {
         break;
     }*/
   delay(1);
-
+  long long timeNow = serverMillis();
   for (int m = 0; m < 165; m++)
   {
-    commandArray[m].doThing(serverMillis(), ledArray);
+    commandArray[m].doThing(timeNow, ledArray);
   }
-  
+
   if (serverMillis() % 3000 == 0)
   {
-    char buf[255];
-    sprintf(buf, "cx:%u cy:%u cz:%u sx:%u sy:%u sz:%u ex:%u ey:%u ez:%u", int(commandArray[iterator].gradientChange.x), int(commandArray[iterator].gradientChange.y), int(commandArray[iterator].gradientChange.z), commandArray[iterator].gradientStart.x, commandArray[iterator].gradientStart.y, commandArray[iterator].gradientStart.z), commandArray[iterator].gradientEnd.x, commandArray[iterator].gradientEnd.y, commandArray[iterator].gradientEnd.z;
-    iterator++;
-    if (iterator > 164)
-    {
-      iterator = 0;
-    }
-    //Send what we think is the server time
-    //to the server for comparison and skew experimentation
+    Serial.printf("server time:%lu\n", timeNow);
+    char timeBuf[50];
     udp.beginPacket(server, 1500);
-    udp.write(buf);
+    sprintf(timeBuf, "%lu\n", timeNow);
+    udp.write(timeBuf);
     udp.endPacket();
+
+    /*
+      Serial.printf("cx:%i cy:%i cz:%i sx:%i sy:%i sz:%i ex:%i ey:%i ez:%i",
+                    int(commandArray[iterator].gradientChange.x), int(commandArray[iterator].gradientChange.y), int(commandArray[iterator].gradientChange.z),
+                    int(commandArray[iterator].gradientStart.x), int(commandArray[iterator].gradientStart.y), int(commandArray[iterator].gradientStart.z),
+                    int(commandArray[iterator].gradientEnd.x), int(commandArray[iterator].gradientEnd.y), int(commandArray[iterator].gradientEnd.z),
+                    int(commandArray[iterator].gradientChange.z), int(commandArray[iterator].gradientStart.x), int(commandArray[iterator].gradientStart.y),
+                    int(commandArray[iterator].gradientStart.z), int(commandArray[iterator].gradientEnd.x), int(commandArray[iterator].gradientEnd.y));
+      Serial.printf(" start: %u duration: %u \n", commandArray[iterator].startTime, commandArray[iterator].duration);
+      */
+      Serial.printf("Currently active commands: %i\n", countActiveCommands(commandArray,timeNow));
+      /*
+      iterator++;
+      if (iterator > 164)
+      {
+        iterator = 0;
+      }
+    */
   }
   /* Brightness setting directly through UDP
      doesn't exactly work, race condition makes LEDs very blinky
@@ -254,3 +268,4 @@ void loop() {
     Particle.publish("response", buffy2, 60, PRIVATE);
   */
 }
+

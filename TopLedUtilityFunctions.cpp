@@ -22,19 +22,19 @@ String getValue(String data, char separator, int index)
 int isin(long x)
 {
   //Lookup table for integer sine function
-static const uint8_t isinTable8[] = {
-  0, 4, 9, 13, 18, 22, 27, 31, 35, 40, 44,
-  49, 53, 57, 62, 66, 70, 75, 79, 83, 87,
-  91, 96, 100, 104, 108, 112, 116, 120, 124, 128,
+  static const uint8_t isinTable8[] = {
+    0, 4, 9, 13, 18, 22, 27, 31, 35, 40, 44,
+    49, 53, 57, 62, 66, 70, 75, 79, 83, 87,
+    91, 96, 100, 104, 108, 112, 116, 120, 124, 128,
 
-  131, 135, 139, 143, 146, 150, 153, 157, 160, 164,
-  167, 171, 174, 177, 180, 183, 186, 190, 192, 195,
-  198, 201, 204, 206, 209, 211, 214, 216, 219, 221,
+    131, 135, 139, 143, 146, 150, 153, 157, 160, 164,
+    167, 171, 174, 177, 180, 183, 186, 190, 192, 195,
+    198, 201, 204, 206, 209, 211, 214, 216, 219, 221,
 
-  223, 225, 227, 229, 231, 233, 235, 236, 238, 240,
-  241, 243, 244, 245, 246, 247, 248, 249, 250, 251,
-  252, 253, 253, 254, 254, 254, 255, 255, 255, 255,
-};
+    223, 225, 227, 229, 231, 233, 235, 236, 238, 240,
+    241, 243, 244, 245, 246, 247, 248, 249, 250, 251,
+    252, 253, 253, 254, 254, 254, 255, 255, 255, 255,
+  };
   boolean pos = true;  // positive - keeps an eye on the sign.
   if (x < 0)
   {
@@ -53,31 +53,37 @@ static const uint8_t isinTable8[] = {
 }
 
 
-bool receiveUDP(WiFiUDP udp) {
-  char incomingPacket[800];
+bool receiveUDP(WiFiUDP udp, char *packetBuffer, int bufferLength) {
+
   //Parse the socket, allows for all the other operations required to read the contents
   int packetSize = udp.parsePacket();
   if (packetSize)
   {
-    //Read 799 bytes from the socket and place it in incomingPacket
-    int len = udp.read(incomingPacket, 799);
+    int len = udp.read(packetBuffer, bufferLength);
     if (len > 0)
     {
       //0 terminate the character array
-      incomingPacket[len] = 0;
+      packetBuffer[len] = 0;
     }
+
+    //Serial.printf("%x%x%x%x%x%x\n", packetBuffer[0],packetBuffer[1],packetBuffer[2],packetBuffer[3],packetBuffer[4],packetBuffer[5]);
     return true;
   }
   return false;
 }
 
-unsigned long serverMillis(long setOffset)
+long long serverMillis(long setOffset)
 {
   static long millisOffset = 0;
   if ( setOffset != 0)
   {
     millisOffset = setOffset;
   }
+  if (millisOffset == 0)
+  {
+    return 0;
+  }
+  //Serial.printf("millisOffset: %ld\n", millisOffset);
   return millis() + millisOffset;
 }
 
@@ -89,19 +95,19 @@ uint8_t byteToInt(byte input) {
 
 byte reverseBitsByte(byte x) {
   int intSize = 8;
-  byte y=0;
-  for(int position=intSize-1; position>0; position--){
-    y+=((x&1)<<position);
+  byte y = 0;
+  for (int position = intSize - 1; position > 0; position--) {
+    y += ((x & 1) << position);
     x >>= 1;
   }
   return y;
 }
 
 //Attempts to synchronize server time to ESP time
-unsigned long timeSync(IPAddress server, WiFiUDP udp, unsigned int port )
+long timeSync(IPAddress server, WiFiUDP udp, unsigned int port )
 {
   long millisOffset = 0;
-  char incomingPacket[255];
+  char packetBuffer[255];
   //Used for calculating the Round-Trip Time between the server and the ESP
   unsigned long RTTStart = micros();
   //Begin a packet to the server, write a request for the time and (s)end the packet
@@ -111,11 +117,12 @@ unsigned long timeSync(IPAddress server, WiFiUDP udp, unsigned int port )
 
   //Calculate Round-Trip Time for the purposes of our checking loop
   unsigned long RTT = micros() - RTTStart;
-  while (!receiveUDP(udp) && RTT <= 750000)
+  while (RTT <= 750000)
   {
+    receiveUDP(udp, packetBuffer, 254);
     RTT = micros() - RTTStart;
     //If the incoming packet starts with "T:", break out of the loop
-    if (incomingPacket[0] == 'T' && incomingPacket[1] == ':')
+    if (packetBuffer[0] == 'T' && packetBuffer[1] == ':')
     {
       break;
     }
@@ -128,7 +135,7 @@ unsigned long timeSync(IPAddress server, WiFiUDP udp, unsigned int port )
   //in reverse order due to opposite endianness
   for ( int i = 0; i < 4; i++)
   {
-    timestamp.str[i] = incomingPacket[5 - i];
+    timestamp.str[i] = packetBuffer[5 - i];
   }
 
   //Calculate the offset between ESP and server, as per Cristian's algorithm
@@ -163,8 +170,7 @@ String sendGET(IPAddress server, WiFiClient client, String url)
         Particle.publish("Status", "Timed out");
         client.stop();
         return "timeout";
-   
-   }
+      }
     }
     String line;
     //Read the client until there's no more data
@@ -211,7 +217,6 @@ bool parseCommands(IPAddress connectTo, String url, WiFiClient client, WiFiUDP u
     getRequest.concat(url);
     getRequest.concat(" HTTP/1.1\r\nHost: ");
     getRequest.concat(connectTo.toString());
-    getRequest.concat("Accept: application/octet-stream\r\n");
     getRequest.concat("\r\nConnection: close\r\n\r\n");
     client.print(getRequest);
     //debug
@@ -229,7 +234,7 @@ bool parseCommands(IPAddress connectTo, String url, WiFiClient client, WiFiUDP u
     }
     int bufferIndex = 0;
     int commandIndex = 0;
-    byte buff[50];
+    char buff[50];
     String line;
     //Read the client until there's no more data
     unsigned long startDataWait = millis();
@@ -241,26 +246,20 @@ bool parseCommands(IPAddress connectTo, String url, WiFiClient client, WiFiUDP u
       {
         line = client.readStringUntil('\r');
         response.concat(line);
-              //The HTTP response header ends in two newlines in a row, so if we find a line with
-      //nothing but a newline character, we've gotten to the start of the payload
-      if (line == "\n")
-      {
-        inResponse = true;
-      }
+        //The HTTP response header ends in two newlines in a row, so if we find a line with
+        //nothing but a newline character, we've gotten to the start of the payload
+        if (line == "\n")
+        {
+          inResponse = true;
+        }
       }
 
 
       if (inResponse) {
 
         buff[bufferIndex] = client.read();
-        
-        udp.beginPacket(connectTo, 1500);
-        sprintf(buf, "x: %x c: %c i: %i u: %u buf: %i", byteToInt(buff[bufferIndex]), buff[bufferIndex], byteToInt(buff[bufferIndex]), byteToInt(buff[bufferIndex]), bufferIndex);
-        udp.write(buf);
-        udp.write((char *)(buff));
-        udp.endPacket();
-        delay(50);
-        switch ((programType)byteToInt(buff[0])) {
+
+        switch ((programType)int(buff[0])) {
           case synctest:
             for (int i = 0; i < 4; i++)
             {
@@ -276,11 +275,7 @@ bool parseCommands(IPAddress connectTo, String url, WiFiClient client, WiFiUDP u
             }
             commandArray[commandIndex] = ChangeInstruction(buff);
 
-            sprintf(buf, "cx:%i cy:%i cz:%u bx:%i by:%i bz:%i", int(commandArray[commandIndex].gradientStart.x), int(commandArray[commandIndex].gradientStart.y), int(commandArray[commandIndex].gradientStart.z), (int)buff[1], (int)buff[2], (int)buff[3]);
-            udp.beginPacket(connectTo, 1500);
-            udp.write(buf);
-            udp.endPacket();
-            delay(50);
+
             commandIndex++;
             bufferIndex = 0;
             break;
@@ -298,17 +293,13 @@ bool parseCommands(IPAddress connectTo, String url, WiFiClient client, WiFiUDP u
 
               buff[bufferIndex] = client.read();
             }
-            for (; buff[bufferIndex] != (byte)255; buff[bufferIndex] = client.read())
+            for (; buff[bufferIndex] != (char)255; buff[bufferIndex] = client.read())
             {
               bufferIndex++;
             }
 
             commandArray[commandIndex] = ChangeInstruction(buff);
-            sprintf(buf, "cx:%i cy:%i cz:%u bx:%i by:%i bz:%i", int(commandArray[commandIndex].gradientStart.x), int(commandArray[commandIndex].gradientStart.y), int(commandArray[commandIndex].gradientStart.z), (int)buff[1], (int)buff[2], (int)buff[3]);
-            udp.beginPacket(connectTo, 1500);
-            udp.write(buf);
-            udp.endPacket();
-            delay(50);
+
             commandIndex++;
             bufferIndex = 0;
 
@@ -343,4 +334,42 @@ bool parseCommands(IPAddress connectTo, String url, WiFiClient client, WiFiUDP u
   }
   client.stop();
   return true;
+}
+int countActiveCommands(ChangeInstruction* commandArray, unsigned long serverTime)
+{
+  int count = 0;
+  for (int i = 0; i < commandArraySize; i++)
+  {
+    if (isCommandActive(commandArray[i], serverTime))
+    {
+      count++;
+    }
+  }
+  return count;
+}
+
+bool isCommandActive(ChangeInstruction command, unsigned long serverTime)
+{
+  if (serverTime > command.startTime && serverTime < command.startTime + command.duration)
+  {
+    return true;
+  }
+  else {
+    return false;
+  }
+}
+
+void serialPrintDouble( double val, unsigned int precision) {
+  // prints val with number of decimal places determine by precision
+  // NOTE: precision is 1 followed by the number of zeros for the desired number of decimial places
+  // example: printDouble( 3.1415, 100); // prints 3.14 (two decimal places)
+
+  Serial.print (int(val));  //prints the int part
+  Serial.print("."); // print the decimal point
+  unsigned int frac;
+  if (val >= 0)
+    frac = (val - int(val)) * precision;
+  else
+    frac = (int(val) - val ) * precision;
+  Serial.println(frac, DEC) ;
 }

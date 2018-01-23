@@ -18,7 +18,7 @@
 String getValue(String data, char separator, int index);
 
 //Calculate what server time is
-unsigned long serverMillis(long setOffset = 0);
+long long serverMillis(long setOffset = 0);
 
 //integer sine function
 int isin(long x);
@@ -26,10 +26,10 @@ int isin(long x);
 
 
 //Check to see if there have been any UDP packets incoming
-//returns true if it reads a packet
-bool receiveUDP(WiFiUDP udp);
+//returns true if it reads a packet, places said packet in packetBuffer
+bool receiveUDP(WiFiUDP udp, char *packetBuffer, int bufferLength);
 
-unsigned long timeSync(IPAddress server, WiFiUDP udp, unsigned int port );
+long timeSync(IPAddress server, WiFiUDP udp, unsigned int port );
 
 
 //Convert byte to integer
@@ -45,4 +45,14 @@ String sendGET(IPAddress server, WiFiClient client, String url);
 //Process command data into command containers
 bool parseCommands(IPAddress connectTo, String url, WiFiClient client, WiFiUDP udp, ChangeInstruction* commandArray, int commandBufferSize = commandArraySize, int commandArraySelect = 1);
 
+//Check to see if the current command should be executed
+bool isCommandActive(ChangeInstruction command, unsigned long serverTime);
+
+//Count how many commands are currently in an actionable state
+int countActiveCommands(ChangeInstruction* commandArray,unsigned long serverTime);
+
+//Prints a float over the serial port
+void serialPrintDouble( double val, unsigned int precision);
+
 #endif
+

@@ -5,26 +5,28 @@ ChangeInstruction::ChangeInstruction()
   type = synctest;
 }
 
-ChangeInstruction::ChangeInstruction (byte instruct[50]) {
+ChangeInstruction::ChangeInstruction (char instruct[50]) {
   switch ((programType)(int)instruct[0])
   {
     case gradient:
       type = gradient;
       gradientStart = Vector3(float(instruct[1]), float(instruct[2]), float(instruct[3]));
       gradientEnd =  Vector3(float(instruct[4]), float(instruct[5]), float(instruct[6]));
-      byte converty[4];
+      char converty[4];
       converty[0] = instruct[7];
       converty[1] = instruct[8];
       converty[2] = instruct[9];
       converty[3] = instruct[10];
 
       startTime = convertCharsToUL(converty);
+      //Serial.printf("startTime: %u" , startTime);
 
       converty[0] = instruct[11];
       converty[1] = instruct[12];
       converty[2] = instruct[13];
       converty[3] = instruct[14];
       duration = convertCharsToUL(converty);
+      //Serial.printf("duration: %u \n", duration);
       gradientChange = Vector3::vectorSub(gradientEnd, gradientStart);
       break;
 
@@ -51,7 +53,9 @@ void ChangeInstruction::doThing(unsigned long serverTime, int ledArray[][3])
     case gradient:
       if (serverTime >= startTime && serverTime <= startTime + duration)
       {
-        writeVector(0, ledArray, Vector3::vectorAdd(gradientStart, Vector3::scalarMult(gradientChange, float((serverTime - startTime) / duration))));
+        Vector3 addVector = Vector3::scalarMult(gradientChange, float((float(serverTime) - float(startTime)) / float(duration)));
+        Vector3 resultant = Vector3::vectorAdd(gradientStart, addVector);
+        writeVector(0, ledArray, resultant);
       }
       break;
     default:
@@ -68,7 +72,7 @@ void ChangeInstruction::doThing(unsigned long serverTime, int ledArray[][3])
   }
 }
 
-unsigned long ChangeInstruction::convertCharsToUL(byte chars[4])
+unsigned long ChangeInstruction::convertCharsToUL(char chars[4])
 {
   union CharLong converter;
   //Might need to change endianness
@@ -76,6 +80,7 @@ unsigned long ChangeInstruction::convertCharsToUL(byte chars[4])
   converter.str[1] = chars[1];
   converter.str[2] = chars[2];
   converter.str[3] = chars[3];
+  //Serial.printf(" converted %u\n", converter.l);
   return converter.l;
 }
 void ChangeInstruction::writeVector(int led, int ledArray[][3], Vector3 vec)
@@ -84,3 +89,4 @@ void ChangeInstruction::writeVector(int led, int ledArray[][3], Vector3 vec)
   analogWrite(ledArray[led][1], int(vec.y));
   analogWrite(ledArray[led][2], int(vec.z));
 }
+

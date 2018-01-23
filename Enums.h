@@ -20,3 +20,4 @@ union CharLong {
 };
 
 #endif
+
