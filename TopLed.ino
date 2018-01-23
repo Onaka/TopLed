@@ -85,9 +85,9 @@ void setup() {
   //pinMode(led1, OUTPUT);
   pinMode(plusButton, INPUT_PULLUP);
   pinMode(minusButton, INPUT_PULLUP);
-  ledArray[0][0] = 2;
-  ledArray[0][1] = 3;
-  ledArray[0][2] = 4;
+  ledArray[0][0] = 5;
+  ledArray[0][1] = 6;
+  ledArray[0][2] = 7;
   for (int i = 0; i < numLeds; i++)
   {
     for (int j = 0; j < 3; j++)
