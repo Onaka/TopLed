@@ -215,12 +215,19 @@ void loop() {
     }*/
   delay(1);
   long long timeNow = serverMillis();
+  if (countActiveCommands(commandArray, timeNow) == 0) {
+    int sine = 4 * (isin(timeNow/2) + 127);
+    Vector3 color = Vector3(float(sine), 0, 0);
+    ChangeInstruction::writeVector(0, ledArray, color);
+  } else {
   for (int m = 0; m < 165; m++)
   {
     commandArray[m].doThing(timeNow, ledArray);
   }
-
-  if (serverMillis() % 3000 == 0)
+  }
+  //Serial.println(isin(timeNow/64) + 127);
+  //delay(50);
+  if (timeNow % 3000 == 0)
   {
     Serial.printf("server time:%lu\n", timeNow);
     char timeBuf[50];
@@ -237,13 +244,13 @@ void loop() {
                     int(commandArray[iterator].gradientChange.z), int(commandArray[iterator].gradientStart.x), int(commandArray[iterator].gradientStart.y),
                     int(commandArray[iterator].gradientStart.z), int(commandArray[iterator].gradientEnd.x), int(commandArray[iterator].gradientEnd.y));
       Serial.printf(" start: %u duration: %u \n", commandArray[iterator].startTime, commandArray[iterator].duration);
-      */
-      Serial.printf("Currently active commands: %i\n", countActiveCommands(commandArray,timeNow));
-      /*
+    */
+    Serial.printf("Currently active commands: %i\n", countActiveCommands(commandArray, timeNow));
+    /*
       iterator++;
       if (iterator > 164)
       {
-        iterator = 0;
+      iterator = 0;
       }
     */
   }

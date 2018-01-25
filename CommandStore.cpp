@@ -1,5 +1,5 @@
 #include "CommandStore.h"
-
+#include "TopLedUtilityFunctions.h"
 ChangeInstruction::ChangeInstruction()
 {
   type = synctest;
@@ -48,27 +48,31 @@ ChangeInstruction::ChangeInstruction (char instruct[50]) {
 
 void ChangeInstruction::doThing(unsigned long serverTime, int ledArray[][3])
 {
-  switch (type)
+  if (serverTime >= startTime && serverTime <= startTime + duration)
   {
-    case gradient:
-      if (serverTime >= startTime && serverTime <= startTime + duration)
-      {
-        Vector3 addVector = Vector3::scalarMult(gradientChange, float((float(serverTime) - float(startTime)) / float(duration)));
-        Vector3 resultant = Vector3::vectorAdd(gradientStart, addVector);
-        writeVector(0, ledArray, resultant);
-      }
-      break;
-    default:
-      bool is1000 = false;
-      //Square wave function that takes the server time and outputs true or false (hopefully)
-      if (pow(-1, floor(float(serverTime / 1000))) < 0)
-      {
-        is1000 = false;
-      } else {
-        is1000 = true;
-      }
-      digitalWrite(2, is1000);
-      break;
+    switch (type)
+    {
+      case gradient:
+        {
+          Vector3 addVector = Vector3::scalarMult(gradientChange, float((float(serverTime) - float(startTime)) / float(duration)));
+          Vector3 resultant = Vector3::vectorAdd(gradientStart, addVector);
+          writeVector(0, ledArray, resultant);
+          break;
+        }
+
+      default:
+        {
+          bool is1000 = false;
+          //Square wave function that takes the server time and outputs true or false (hopefully)
+          if (pow(-1, floor(float(serverTime / 1000))) < 0)
+          {
+            is1000 = false;
+          } else {
+            is1000 = true;
+          }
+          break;
+        }
+    }
   }
 }
 
@@ -85,8 +89,10 @@ unsigned long ChangeInstruction::convertCharsToUL(char chars[4])
 }
 void ChangeInstruction::writeVector(int led, int ledArray[][3], Vector3 vec)
 {
-  analogWrite(ledArray[led][0], int(vec.x));
-  analogWrite(ledArray[led][1], int(vec.y));
-  analogWrite(ledArray[led][2], int(vec.z));
+  //The analogwrite on this micro is 10-bit instead of 8-bit
+  //and we're controlling common cathode LEDs, so we need to invert the input 
+  analogWrite(ledArray[led][0], 1024 - int(vec.x));
+  analogWrite(ledArray[led][1], 1024 - int(vec.y));
+  analogWrite(ledArray[led][2], 1024 - int(vec.z));
 }
 

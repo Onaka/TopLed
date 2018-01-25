@@ -106,6 +106,7 @@ byte reverseBitsByte(byte x) {
 //Attempts to synchronize server time to ESP time
 long timeSync(IPAddress server, WiFiUDP udp, unsigned int port )
 {
+  bool gotResponse = false;
   long millisOffset = 0;
   char packetBuffer[255];
   //Used for calculating the Round-Trip Time between the server and the ESP
@@ -124,10 +125,11 @@ long timeSync(IPAddress server, WiFiUDP udp, unsigned int port )
     //If the incoming packet starts with "T:", break out of the loop
     if (packetBuffer[0] == 'T' && packetBuffer[1] == ':')
     {
+      gotResponse = true;
       break;
     }
   }
-  
+
   //Union for converting stream of bytes into an unsigned long
   union CharLong timestamp;
 
@@ -145,8 +147,14 @@ long timeSync(IPAddress server, WiFiUDP udp, unsigned int port )
     char buffa[50];
     sprintf(buffa, "%d", timestamp.l);
     Particle.publish("Servertime", buffa);*/
-
-  return millisOffset;
+  if ( gotResponse)
+  {
+    return millisOffset;
+  }
+  else
+  {
+    return 0;
+  }
 }
 
 String sendGET(IPAddress server, WiFiClient client, String url)
